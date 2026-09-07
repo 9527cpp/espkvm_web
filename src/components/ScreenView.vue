@@ -205,8 +205,20 @@ function startStream() {
     },
     onUnavailable() {
       /* Fall back once and stay there: flapping between transports would make
-         the picture blink for as long as the channel is unhappy. */
+         the picture blink for as long as the channel is unhappy.
+         Except: multipart /stream cannot carry H.264 (device answers 409), so
+         falling back while the device is encoding H.264 only produces a black
+         pane and a reconnect loop. Retry the WebSocket instead. */
       if (useWebsocket.value) {
+        if (props.status?.codec === "h264") {
+          loaded.value = false;
+          stream?.stop();
+          stream = null;
+          window.setTimeout(() => {
+            if (!props.paused) startStream();
+          }, 1000);
+          return;
+        }
         useWebsocket.value = false;
         loaded.value = false;
         streamUrl.value = `/stream?t=${Date.now()}`;
